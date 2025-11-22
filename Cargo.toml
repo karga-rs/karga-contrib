@@ -1,0 +1,16 @@
+[workspace]
+members = []
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.75.0"
+license = "MIT"
+repository = "https://github.com/karga-rs/karga-contrib"
+
+[workspace.dependencies]
+karga = { version = "^0.4", default-features = false }
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+typed-builder = "0.23.0"
