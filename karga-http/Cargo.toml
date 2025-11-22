@@ -1,0 +1,21 @@
+[package]
+name = "karga-http"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+authors = ["Degartil <outragedline@proton.me>"]
+license.workspace = true
+readme = "./README.md"
+description = "Karga adapters for the main web protocols"
+repository.workspace = true
+keywords = ["loadtesting", "benchmark", "rps", "performance", "http"]
+categories = ["development-tools::profiling"]
+publish = true
+
+[dependencies]
+hdrhistogram = "7.5.4"
+karga.workspace = true
+serde.workspace = true
+reqwest = "0.12"
+tracing.workspace = true
+typed-builder.workspace = true
