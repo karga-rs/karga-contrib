@@ -1,14 +1,9 @@
 use hdrhistogram::Histogram;
 use karga::{Aggregate, Metric, Report};
 use reqwest::Client;
-use reqwest::Request;
 use serde::{Deserialize, Serialize};
-use std::time::Instant;
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{collections::HashMap, time::Duration};
 use typed_builder::TypedBuilder;
-
-/// so you dont have to add it yourself
-pub use reqwest;
 
 #[derive(Clone, PartialEq, PartialOrd)]
 pub struct HttpResponseMetric {
@@ -126,25 +121,85 @@ impl From<HttpAggregate> for HttpReport {
 
 impl Report<HttpAggregate> for HttpReport {}
 
+pub use reqwest::header::HeaderMap as Headers;
+pub use reqwest::Body;
+pub use reqwest::Method;
+pub use reqwest::Url;
+
 #[derive(TypedBuilder)]
-pub struct HttpAction {
+pub struct HttpActionConfig {
+    #[builder(default = Client::new())]
     pub client: Client,
-    pub request: Arc<Request>,
+
+    pub method: Method,
+
+    #[builder(setter(transform = |s: &str| Url::parse(s).expect("Invalid URL passed to HttpActionConfig")))]
+    pub url: Url,
+
+    #[builder(default = None)]
+    pub headers: Option<Headers>,
+
+    #[builder(default = None)]
+    pub body: Option<Body>,
 }
 
-pub async fn http_action(client: Client, request: Arc<Request>) -> HttpMetric {
-    let request = request.try_clone().expect("Body of request must be Clone");
-    let start = Instant::now();
-    let client = client.clone();
-    let res = client.execute(request).await;
-    let elapsed = start.elapsed();
-    match res {
-        Ok(res) => HttpMetric::Success(HttpResponseMetric {
-            latency: elapsed,
-            status_code: res.status().into(),
-            bytes_received: res.content_length().unwrap_or(0),
-            bytes_sent: 0,
-        }),
-        Err(_) => HttpMetric::Failure,
+#[macro_export]
+macro_rules! make_http_action {
+    ($config:expr) => {{
+        let config = $config;
+
+        let mut req_builder = config
+            .client
+            .request(config.method.clone(), config.url.clone());
+        if let Some(h) = config.headers {
+            req_builder = req_builder.headers(h)
+        }
+
+        if let Some(b) = config.body {
+            req_builder = req_builder.body(b)
+        }
+        let req = req_builder.build().expect("Unable to build request");
+        req.try_clone().expect("request must be Clone");
+        let req = std::sync::Arc::new(req);
+        move || {
+            let client = config.client.clone();
+            let req = req.clone();
+            async move {
+                let req = req.try_clone().unwrap();
+                let start = std::time::Instant::now();
+                let client = client.clone();
+                let res = client.execute(req).await;
+                let elapsed = start.elapsed();
+                match res {
+                    Ok(res) => HttpMetric::Success(HttpResponseMetric {
+                        latency: elapsed,
+                        status_code: res.status().into(),
+                        bytes_received: res.content_length().unwrap_or(0),
+                        bytes_sent: 0,
+                    }),
+                    Err(_) => HttpMetric::Failure,
+                }
+            }
+        }
+    }};
+}
+
+#[cfg(test)]
+mod tests {
+    use karga::Scenario;
+
+    use super::*;
+
+    #[test]
+    fn action_compatibility() {
+        let config = HttpActionConfig::builder()
+            .method(Method::GET)
+            .url("http://localhost:3000")
+            .build();
+
+        let _: Scenario<HttpAggregate, _, _> = Scenario::builder()
+            .name("random")
+            .action(make_http_action!(config))
+            .build();
     }
 }
