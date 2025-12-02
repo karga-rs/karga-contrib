@@ -19,3 +19,7 @@ serde.workspace = true
 reqwest = "0.12"
 tracing.workspace = true
 typed-builder.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+tracing-subscriber.workspace = true
