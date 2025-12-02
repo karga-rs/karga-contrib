@@ -171,13 +171,13 @@ macro_rules! make_http_action {
                 let res = client.execute(req).await;
                 let elapsed = start.elapsed();
                 match res {
-                    Ok(res) => HttpMetric::Success(HttpResponseMetric {
+                    Ok(res) => $crate::HttpMetric::Success(HttpResponseMetric {
                         latency: elapsed,
                         status_code: res.status().into(),
                         bytes_received: res.content_length().unwrap_or(0),
                         bytes_sent: 0,
                     }),
-                    Err(_) => HttpMetric::Failure,
+                    Err(_) => $crate::HttpMetric::Failure,
                 }
             }
         }
